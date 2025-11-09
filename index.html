@@ -24,6 +24,16 @@
       display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;
       align-items:start; /* don’t stretch to tallest card */
     }
+      /* --- Add this below --- */
+  .grid > * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  img, video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
     body {
   margin: 0;
   padding: 0;
