@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RA$</title>
+  <meta name="description" content="Collection of videos, poems, pics and more." />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    /* --- theme --- */
+    :root{--bg:#0a0a0a;--fg:#f5f5f5;--muted:#a3a3a3;--line:#f5f5f5;--card:#0e0e0e}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.7 "EB Garamond", ui-serif, serif}
+    a{color:var(--fg)}
+    header{position:sticky;top:0;z-index:10;background:var(--bg);border-bottom:2px solid var(--line);backdrop-filter:saturate(140%) blur(4px)}
+    .wrap{max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:clamp(20px,3vw,28px);letter-spacing:.5px;text-transform:uppercase}
+    .pill{border:2px solid var(--line);background:transparent;color:var(--fg);padding:6px 10px;border-radius:8px;cursor:pointer;font:12px "IBM Plex Mono", monospace;text-transform:uppercase;letter-spacing:.06em}
+    .pill.active{border-style:dashed}
+
+    /* --- grid --- */
+    .grid{
+      max-width:1000px;margin:18px auto;padding:0 16px;
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;
+      align-items:start; /* don’t stretch to tallest card */
+    }
+
+    /* --- cards/media (default = uniform 16:9) --- */
+    .card{border:2px dashed var(--line);border-radius:10px;box-shadow:4px 4px 0 0 var(--line);overflow:hidden;cursor:pointer}
+    .thumb{aspect-ratio:16/9;background:#1a1a1a;display:grid;place-items:center}
+    .thumb img,.thumb video{width:100%;height:100%;object-fit:cover} /* tidy thumbs when Fit OFF */
+    .body{padding:12px}
+    .type{font:12px "IBM Plex Mono", monospace;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+    .title{font-weight:700}
+    pre{white-space:pre-wrap}
+    .poem{ margin:8px 0 0; font:16px/1.8 "EB Garamond", ui-serif, serif; }
+
+    /* hide empty blocks to remove extra white space */
+    .desc:empty{display:none}
+    .tags:empty{display:none}
+    .actions:empty{display:none}
+
+    /* header controls */
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+
+    /* layout toggles */
+    body.stack .grid{ grid-template-columns:1fr; }
+
+    /* Fit Boxes ON: let media define height (override 16:9) */
+    body.fit .thumb{
+      aspect-ratio:auto; background:transparent; display:block; overflow:visible; padding:0;
+    }
+    body.fit .thumb img, body.fit .thumb video{
+      width:100%; height:auto; object-fit:contain; /* show full media, no crop */
+    }
+    /* Grid + Fit: keep cards from being too tall (tweak 48vh if you want) */
+    body.fit:not(.stack) .thumb img, body.fit:not(.stack) .thumb video{ max-height:48vh; }
+    /* Stack + Fit: full natural height */
+    body.fit.stack .thumb img, body.fit.stack .thumb video{ max-height:none; }
+
+    /* modal viewer */
+    dialog#viewer{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:16px;max-width:min(920px,92vw)}
+    dialog#viewer::backdrop{background:rgba(0,0,0,.45)}
+    #viewer article{padding:14px}
+    #viewer .media{margin:8px 0 12px}
+    #viewer .media img,#viewer .media video{width:100%;height:auto;max-height:80vh;object-fit:contain;display:block}
+    #viewer-close{float:right}
+    /* Masonry mode: tiny implicit row units; JS spans rows per card */
+body.masonry .grid{
+  grid-auto-rows: 8px;  /* row unit height; keep in sync with JS */
+  grid-auto-flow: dense;   /* NEW: lets items tuck into gaps */
+  align-items: start;   /* do not stretch cards to the tallest in row */
+}
+
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Random Ass $hit</h1>
+      <div class="controls">
+        <button id="layout-grid" class="pill" title="Grid layout">Grid</button>
+        <button id="layout-stack" class="pill" title="Stacked layout">Stack</button>
+        <button id="fit-toggle" class="pill" title="Fit boxes to content">Beep</button>
+        <button id="masonry-toggle" class="pill" title="Fill gaps">Boop</button>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="grid" id="grid" aria-live="polite"></main>
+
+  <!-- Big viewer modal -->
+  <dialog id="viewer">
+    <article>
+      <button id="viewer-close" class="pill" aria-label="Close">×</button>
+      <div id="viewer-content"></div>
+    </article>
+  </dialog>
+
+  <script>
+    // ===== Content: update to your files =====
+    const items = [
+  { id:'v1', type:'video', title:'testing testing', 
+    
+    // no cover since you didn't specify one
+    video:'videos/test.mp4',
+    tags:['video','loop']
+  },
+  { id:'p1', type:'poem', title:'April 9 in my small book', date:'2025-10-14',
+    poem:`I want to be what you want.
+I’ll do anything.
+I’ll break my back
+I’ll melt into you 
+I’ll mold into your wishes
+I’ll drop to your needs. 
+I’ll give you me just for you to want me.`,
+    tags:['poem']
+  },
+  { id:'p2', type:'poem', title:'I was about to write pretty', date:'2025-10-17',
+    poem:`I was about to say I go between feeling pretty and ugly. 
+But I honestly don’t know if I ever feel pretty. 
+I don’t know if pretty is a word for me. 
+A word I want. 
+Or a word I am.
+
+I don’t feel like I can be pretty. 
+I think I can be beautiful. 
+But I don’t think I am pretty. 
+
+I don’t know if being told I’m pretty 
+Would even feel good. 
+And I wish it would. 
+
+And I don’t know if that’s because I 
+Truly don’t think I am pretty and it’s a self worth thing
+Or if pretty feels the most flowery and feminine 
+Which I don’t feel is at my core. 
+But I don’t know what’s at my core. 
+
+I’m working to actually believe ugly is not a word for me. 
+But I don’t know what to do with pretty. 
+And now I’m crying. 
+So maybe I’m a pretty crier.`,
+    tags:['poem']
+  },
+  { id:'v2', type:'video', title:'forrest', date:'2025-10-14',
+    // no cover since you didn't specify one
+    video:'videos/second.mp4',
+    tags:['video','loop']
+  },
+  { id:'ph1', type:'photo', date:'2025-10-14',
+    cover:'photos/test.jpg',
+    tags:['photo']
+  }
+];
+
+
+    // ===== Elements
+    const grid = document.getElementById('grid');
+
+    // ===== Utilities
+    const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const fmtDate = s => { try{ return new Date(s).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) } catch{ return s } };
+
+    // ===== Card template
+    function cardHTML(it){
+      let media = '';
+if(it.type==='video'){
+  const poster = it.cover ? ` poster="${it.cover}"` : '';
+  media = `<div class="thumb">
+             <video autoplay loop muted playsinline controls preload="auto"${poster}>
+               <source src="${it.video}" type="video/mp4">
+               Your browser does not support the video tag.
+             </video>
+           </div>`;
+      } else if(it.type==='photo'){
+        media = `<div class="thumb">${it.cover?`<img src="${esc(it.cover)}" alt="">`:''}</div>`;
+      } else if(it.type==='poem'){
+        media = ''; // poem shows inline text
+      }
+      return `
+        <article class="card" data-id="${it.id}" data-type="${it.type}">
+          ${media}
+          <div class="body">
+            <div class="title">${esc(it.title||'')}</div>
+            ${it.desc?`<div class="desc">${esc(it.desc)}</div>`:''}
+            ${it.type==='poem'?`<pre class="poem">${esc(it.poem||'')}</pre>`:''}
+          </div>
+        </article>`;
+    }
+
+    // ===== Render
+    function render(){
+      grid.innerHTML = items.map(cardHTML).join('');
+
+      // click to open viewer
+      document.querySelectorAll('.card').forEach(el=>{
+        el.addEventListener('click', (e)=>{
+          if (e.target.closest('.btn')) return; // ignore inner buttons if any
+          const id = el.getAttribute('data-id');
+          const it = items.find(x=>x.id===id);
+          if(it) openViewer(it);
+        }, {passive:true});
+      });
+        // >>> Masonry reflow at end of render <<<
+  hookMasonryObservers();
+  applyMasonry();
+    }
+
+    // ===== Viewer (modal)
+    const viewer = document.getElementById('viewer');
+    const viewerContent = document.getElementById('viewer-content');
+    const viewerClose = document.getElementById('viewer-close');
+
+    function openViewer(it){
+      let inner = `
+        <div class="type">${it.type} · <time>${fmtDate(it.date||'')}</time></div>
+        <h3 style="margin:6px 0 10px">${esc(it.title||'')}</h3>`;
+      if(it.type==='video'){
+        const poster = it.cover ? ` poster="${it.cover}"` : '';
+        inner += `<div class="media"><video controls autoplay muted playsinline${poster}>
+                    <source src="${it.video}" type="video/mp4">
+                  </video></div>`;
+        if(it.desc) inner += `<div class="desc">${esc(it.desc)}</div>`;
+      } else if(it.type==='photo'){
+        inner += `<div class="media"><img src="${esc(it.cover)}" alt=""></div>`;
+        if(it.desc) inner += `<div class="desc">${esc(it.desc)}</div>`;
+      } else if(it.type==='poem'){
+        inner += it.cover ? `<div class="media"><img src="${esc(it.cover)}" alt=""></div>` : '';
+        inner += `<pre class="poem">${esc(it.poem||'')}</pre>`;
+      }
+      viewerContent.innerHTML = inner;
+      viewer.showModal();
+    }
+
+    viewerClose?.addEventListener('click', ()=> viewer.close());
+    viewer?.addEventListener('click', (e)=>{ if(e.target===viewer) viewer.close(); });
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && viewer.open) viewer.close(); });
+
+    // ===== Layout toggles (Grid / Stack / Fit Boxes)
+    const gridBtn  = document.getElementById('layout-grid');
+    const stackBtn = document.getElementById('layout-stack');
+    const fitBtn   = document.getElementById('fit-toggle');
+
+    function syncActive(){
+      gridBtn?.classList.toggle('active', !document.body.classList.contains('stack'));
+      stackBtn?.classList.toggle('active',  document.body.classList.contains('stack'));
+      fitBtn?.classList.toggle('active',    document.body.classList.contains('fit'));
+    }
+    gridBtn?.addEventListener('click', ()=>{ document.body.classList.remove('stack'); localStorage.setItem('layout','grid'); syncActive(); });
+    stackBtn?.addEventListener('click', ()=>{ document.body.classList.add('stack');  localStorage.setItem('layout','stack'); syncActive(); });
+    fitBtn  ?.addEventListener('click', ()=>{ const isFit=document.body.classList.toggle('fit'); localStorage.setItem('fit',isFit?'1':'0'); syncActive(); });
+
+    // restore saved toggles
+    (function initLayout(){
+      if(localStorage.getItem('layout')==='stack') document.body.classList.add('stack');
+      if(localStorage.getItem('fit')==='1')        document.body.classList.add('fit');
+      // ★ Turn Masonry on unless user previously turned it off
+  if(localStorage.getItem('masonry') !== '0'){
+    document.body.classList.add('masonry');
+  }
+      syncActive();
+    })();
+
+    // ===== Masonry toggle =====
+const masonryBtn = document.getElementById('masonry-toggle');
+
+function applyMasonry(){
+  // If Masonry is off, clear any spans
+  if(!document.body.classList.contains('masonry')){
+    grid.querySelectorAll('.card').forEach(el=> el.style.removeProperty('grid-row-end'));
+    return;
+  }
+  // These must match your CSS grid + styles:
+  const row = 8;   // same as body.masonry .grid { grid-auto-rows: 8px; }
+  const gap = 14;  // same as your .grid { gap:14px; }
+  grid.querySelectorAll('.card').forEach(el=>{
+    const h = el.getBoundingClientRect().height;
+const span = Math.ceil((h + gap) / (row + gap));  // <-- fix
+el.style.gridRowEnd = `span ${span}`;
+  });
+}
+
+function hookMasonryObservers(){
+  // Recompute when cards or media change size
+  const ro = new ResizeObserver(()=> applyMasonry());
+  grid.querySelectorAll('.card').forEach(el=> ro.observe(el));
+  grid.querySelectorAll('img, video').forEach(m=>{
+    if(m.complete || (m.readyState >= 2)) return; // already loaded
+    m.addEventListener('load', applyMasonry, { once:true });
+    m.addEventListener('loadedmetadata', applyMasonry, { once:true });
+  });
+  window.addEventListener('resize', applyMasonry);
+}
+
+masonryBtn?.addEventListener('click', ()=>{
+  const on = document.body.classList.toggle('masonry');
+  localStorage.setItem('masonry', on ? '1' : '0');
+  masonryBtn.classList.toggle('active', on);
+  hookMasonryObservers();
+  applyMasonry();
+});
+
+// If you have syncActive() for the pills, extend it so Masonry shows active state, too.
+if (typeof window.syncActive === 'function') {
+  const prev = window.syncActive;
+  window.syncActive = function(){
+    prev();
+    masonryBtn?.classList.toggle('active', document.body.classList.contains('masonry'));
+  };
+} else {
+  // fallback: highlight once
+  masonryBtn?.classList.toggle('active', document.body.classList.contains('masonry'));
+}
+
+// Restore Masonry on load if previously on
+(function initMasonry(){
+  if(localStorage.getItem('masonry')==='1'){
+    document.body.classList.add('masonry');
+  }
+})();
+
+
+// boot
+render();
+// ensure first frame is painted on load
+document.querySelectorAll('.thumb video').forEach(v=>{
+  v.addEventListener('loadeddata', ()=>{
+    try { v.currentTime = 0.05; } catch(e){}
+  }, {once:true});
+});
+
+hookMasonryObservers();
+applyMasonry();
+setTimeout(applyMasonry, 60); // extra pass after fonts/media settle
+
+  </script>
+</body>
+</html>
